@@ -1,10 +1,15 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import os, requests
 
+# ===========================
+# ⚙️ App Setup
+# ===========================
 app = Flask(__name__)
+CORS(app)  # ✅ Enable CORS for all routes and origins
 
 # ===========================
-# 🔐 Configuration (from .env or Render)
+# 🔐 Configuration (from Render environment variables)
 # ===========================
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -29,7 +34,9 @@ def submit():
     if not kheed:
         return jsonify({"error": "Missing 'kheed'"}), 400
 
-    # Send data to Supabase
+    # ===========================
+    # 🚀 Send data to Supabase
+    # ===========================
     try:
         res = requests.post(
             f"{SUPABASE_URL}/rest/v1/claimtoken",
@@ -43,12 +50,21 @@ def submit():
         )
 
         if res.status_code in (200, 201):
-            return jsonify({"status": "success", "inserted": {"kheed": kheed}}), res.status_code
+            return jsonify({
+                "status": "success",
+                "inserted": {"kheed": kheed}
+            }), res.status_code
         else:
-            return jsonify({"status": "failed", "details": res.text}), res.status_code
+            return jsonify({
+                "status": "failed",
+                "details": res.text
+            }), res.status_code
 
     except Exception as e:
-        return jsonify({"status": "error", "details": str(e)}), 500
+        return jsonify({
+            "status": "error",
+            "details": str(e)
+        }), 500
 
 # ===========================
 # ▶️ Run Server
