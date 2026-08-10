@@ -1,73 +1,91 @@
-from flask import Flask, request, jsonify
+import os
+
+import requests
+from flask import Flask, jsonify, request
 from flask_cors import CORS
-import os, requests
 
-# ===========================
-# ⚙️ App Setup
-# ===========================
+
 app = Flask(__name__)
-CORS(app)  # ✅ Enable CORS for all routes and origins
+CORS(app)
 
-# ===========================
-# 🔐 Configuration (from Render environment variables)
-# ===========================
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-# ===========================
-# 🏠 Home Route
-# ===========================
-@app.route("/")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+
+@app.get("/")
 def home():
-    return "✅ claimtoken API is running."
+    return jsonify({
+        "status": "success",
+        "message": "claimtoken API is running."
+    })
 
-# ===========================
-# 📩 Submit Route (write-only)
-# ===========================
-@app.route("/submit", methods=["POST"])
+
+@app.post("/submit")
 def submit():
-    data = request.get_json()
+    # Check configuration first
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return jsonify({
+            "status": "error",
+            "message": "Supabase environment variables are not configured."
+        }), 500
+
+    # Read JSON body
+    data = request.get_json(silent=True)
+
     if not data:
-        return jsonify({"error": "Missing JSON body"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Missing JSON body."
+        }), 400
 
+    # Get kheed
     kheed = data.get("kheed")
-    if not kheed:
-        return jsonify({"error": "Missing 'kheed'"}), 400
 
-    # ===========================
-    # 🚀 Send data to Supabase
-    # ===========================
+    if not kheed:
+        return jsonify({
+            "status": "error",
+            "message": "Missing 'kheed'."
+        }), 400
+
+    # Send data to Supabase
     try:
-        res = requests.post(
+        response = requests.post(
             f"{SUPABASE_URL}/rest/v1/claimtoken",
             headers={
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}",
                 "Content-Type": "application/json",
-                "Prefer": "return=representation"
+                "Prefer": "return=representation",
             },
-            json={"kheed": kheed}
+            json={
+                "kheed": kheed
+            },
+            timeout=15,
         )
 
-        if res.status_code in (200, 201):
-            return jsonify({
-                "status": "success",
-                "inserted": {"kheed": kheed}
-            }), res.status_code
-        else:
-            return jsonify({
-                "status": "failed",
-                "details": res.text
-            }), res.status_code
-
-    except Exception as e:
+    except requests.RequestException as error:
         return jsonify({
             "status": "error",
-            "details": str(e)
-        }), 500
+            "message": "Could not connect to Supabase.",
+            "details": str(error),
+        }), 502
 
-# ===========================
-# ▶️ Run Server
-# ===========================
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5111)
+    # Supabase successfully inserted the record
+    if response.status_code in (200, 201):
+        return jsonify({
+            "status": "success",
+            "inserted": {
+                "kheed": kheed
+            }
+        }), response.status_code
+
+    # Supabase returned an error
+    return jsonify({
+        "status": "failed",
+        "details": response.text,
+    }), response.status_code
+
+
+# Netlify uses this Flask application as the function handler.
+handler = app
