@@ -23,14 +23,12 @@ def home():
 
 @app.post("/submit")
 def submit():
-    # Check configuration first
     if not SUPABASE_URL or not SUPABASE_KEY:
         return jsonify({
             "status": "error",
             "message": "Supabase environment variables are not configured."
         }), 500
 
-    # Read JSON body
     data = request.get_json(silent=True)
 
     if not data:
@@ -39,7 +37,6 @@ def submit():
             "message": "Missing JSON body."
         }), 400
 
-    # Get kheed
     kheed = data.get("kheed")
 
     if not kheed:
@@ -48,13 +45,11 @@ def submit():
             "message": "Missing 'kheed'."
         }), 400
 
-    # Send data to Supabase
     try:
         response = requests.post(
             f"{SUPABASE_URL}/rest/v1/claimtoken",
             headers={
                 "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
                 "Content-Type": "application/json",
                 "Prefer": "return=minimal",
             },
@@ -64,28 +59,19 @@ def submit():
             timeout=15,
         )
 
-    except requests.RequestException as error:
+    except requests.RequestException:
         return jsonify({
             "status": "error",
-            "message": "Could not connect to Supabase.",
-            "details": str(error),
+            "message": "Could not connect to Supabase."
         }), 502
 
-    # Supabase successfully inserted the record
     if response.status_code in (200, 201):
-        return jsonify({
-            "status": "success",
-            "inserted": {
-                "kheed": kheed
-            }
-        }), response.status_code
+        return "", 204
 
-    # Supabase returned an error
     return jsonify({
         "status": "failed",
         "details": response.text,
     }), response.status_code
 
 
-# Netlify uses this Flask application as the function handler.
 handler = app
