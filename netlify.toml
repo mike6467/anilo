@@ -1,10 +1,7 @@
-[build]
-  functions = "netlify/functions"
-
 [functions]
-  runtime = "python3.11"
+  directory = "netlify/functions"
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  from = "/api/submit"
+  to = "/.netlify/functions/submit"
   status = 200
